@@ -1,0 +1,14 @@
+{
+  "name": "ultimate-tic-tac-toe-ai",
+  "version": "1.0.0",
+  "description": "Minimax (C++) vs Monte Carlo Tree Search (JavaScript) for Ultimate Tic-Tac-Toe.",
+  "license": "MIT",
+  "scripts": {
+    "build": "make",
+    "battle": "node js/battle.js",
+    "tournament": "node js/tournament.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

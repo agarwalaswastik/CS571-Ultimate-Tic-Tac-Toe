@@ -1,11 +1,12 @@
-.PHONY: clean
+.PHONY: all clean
 
-CFLAGS=-c -Wall -O3
+CXXFLAGS=-std=c++17 -Wall -O3
+CFLAGS=-c $(CXXFLAGS)
 
 all: run.out
 
 run.out: bin/main.o bin/board.o
-	g++ -Wall $^ -o $@
+	g++ $(CXXFLAGS) $^ -o $@
 
 bin/main.o: src/main.cpp
 	@mkdir -p $(@D)

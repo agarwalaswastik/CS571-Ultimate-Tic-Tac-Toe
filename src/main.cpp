@@ -1,7 +1,25 @@
+// main.cpp
+//
+// Command-line minimax engine for Ultimate Tic-Tac-Toe. It reads moves on stdin
+// and writes its own moves on stdout, so it can be driven by another process
+// (see js/minimax-player.js). Protocol:
+//
+//   "<board><cell>"  apply the opponent's move (two digits, 0-8 each)
+//   "ai"             compute and play the engine's move, printing
+//                    "AI CHOSE THE MOVE <board><cell>"
+//   "print"          dump the board to stdout
+//   "quit" / "exit"  stop
+//
+// The search is depth-limited minimax with alpha-beta pruning; leaf positions are
+// scored by the heuristic in board.cpp (UTTBoard::getHeuristicScore).
 #include "board.cpp"
 #include <sstream>
 
-// Minimax implementation
+// Plies the search looks ahead. Chosen to keep each move under ~1s.
+const int SEARCH_DEPTH = 8;
+
+// Depth-limited minimax with alpha-beta pruning. Returns the best achievable
+// heuristic score for aiPlayer from the given position.
 int minimax(UTTBoard &board, int depth, int alpha, int beta, bool isMaximizing, uint8_t aiPlayer){
   if (depth==0||board.gameOver()){
     return board.getHeuristicScore(aiPlayer);
@@ -60,7 +78,6 @@ uint8_t getBestMove(UTTBoard &board, int depth){
     UTTBoard nextBoard = board;
     nextBoard.makeMove(move);
     int moveValue = minimax(nextBoard, depth-1, alpha, beta, false, aiPlayer);
-    // cerr << move << ": " << moveValue << "\n";
 
     if (moveValue>bestValue){
       bestValue = moveValue;
@@ -110,25 +127,14 @@ int main(int argc, char *argv[]) {
       vector<uint8_t> legalMoves = board.getLegalMoves();
       if (legalMoves.empty()) {
         cerr << "ERROR: No legal moves available but game not over" << endl;
-        cerr << "Move number: " << (int)board.moveNum << endl;
-        cerr << "Last move: " << (board.prevMove >= 0 ? board.getMoveString(board.prevMove) : "none") << endl;
-        cerr << "Won sub-boards: ";
-        for (uint8_t sb = 0; sb < 9; sb++) {
-          if (board.isSubWon(sb)) {
-            cerr << (int)sb << "(P" << (board.subWinner(sb)+1) << ") ";
-          }
-        }
-        cerr << endl;
         cout << "NO_MOVES" << endl;
         cout << flush;
         break;
       }
-      
-      cerr << "Legal moves available: " << legalMoves.size() << endl;
-      
+
       uint8_t aiMove;
       try {
-        aiMove = getBestMove(board, 8); // Depth 8 for reasonable speed
+        aiMove = getBestMove(board, SEARCH_DEPTH);
       } catch (...) {
         cerr << "ERROR: getBestMove failed, using first legal move" << endl;
         aiMove = legalMoves[0];
@@ -171,43 +177,21 @@ int main(int argc, char *argv[]) {
     } else {
       // Opponent's move
       uint8_t move = parseMove(line);
-      
+
       if (move >= 81) {
         cerr << "ERROR: Invalid move format: " << line << endl;
-        cerr << "Move number was: " << (int)move << endl;
         continue;
       }
-      
-      cerr << "Attempting to play opponent move at position " << (int)move << " (Board " << (int)(move/9) << ", Cell " << (int)(move%9) << ")" << endl;
-      
+
       if (!board.checkMove(move)) {
-        cerr << "ERROR: Invalid move (not allowed by game rules): " << line << endl;
-        cerr << "Position " << (int)move << " is not legal" << endl;
-        
-        // Print which sub-boards are won
-        cerr << "Won sub-boards: ";
-        for (uint8_t sb = 0; sb < 9; sb++) {
-          if (board.isSubWon(sb)) {
-            cerr << (int)sb << "(P" << (board.subWinner(sb)+1) << ") ";
-          }
-        }
-        cerr << endl;
-        
-        cerr << "Last move was: " << (board.prevMove >= 0 ? board.getMoveString(board.prevMove) : "none") << endl;
-        cerr << "Board state may be out of sync. Attempting to continue..." << endl;
+        cerr << "ERROR: Illegal move " << line << "; board may be out of sync. Continuing." << endl;
         continue;
       }
-      
+
       board.makeMove(move);
       cerr << "Opponent played: " << board.getMoveString(move) << endl;
-      
-      // Debug: Check if sub-board was won
-      uint8_t subBoard = move / 9;
-      if (board.isSubWon(subBoard)) {
-        cerr << "Sub-board " << (int)subBoard << " is now won by player " << (board.subWinner(subBoard) + 1) << endl;
-      }
-      
-      // CRITICAL: Check if opponent just won the game!
+
+      // Check whether the opponent's move just ended the game.
       if (board.gameOver()) {
         if (board.getWinner() >= 0) {
           cerr << "Game Over! Winner: Player " << (board.getWinner() + 1) << endl;

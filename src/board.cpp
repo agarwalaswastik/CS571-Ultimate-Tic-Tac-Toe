@@ -13,8 +13,8 @@ public:
   uint8_t subWins;
   int8_t winner;
   int8_t prevMove;
-  bool board[81][2];      // TODO More efficient representation later: 192byte -> 192bit (24byte)
-  bool winnerBoard[9][2]; // TODO More efficient representation later: 18byte -> 18bit (3byte)
+  bool board[81][2];      // [cell][player]: per-cell occupancy for each player
+  bool winnerBoard[9][2]; // [subBoard][player]: which player has won each sub-board
 
   UTTBoard()
   {
@@ -36,9 +36,7 @@ public:
     memcpy(winnerBoard, other.winnerBoard, sizeof(winnerBoard));
   }
 
-  // TODO What if game over?
-  // Returns whose turn it is
-  // Plater1/2: 0/1
+  // Returns whose turn it is (Player1/2 -> 0/1), derived from the move count.
   inline uint8_t whoseTurn() { return moveNum & 0b1; }
 
   // Translate an absolute position to its sub_board index
@@ -432,54 +430,37 @@ private:
   // Check Move Validity
   bool validMove(uint8_t position)
   {
-    // cerr << "CHECKPOINT: 1\n";
     if (gameOver())
       return false;
     uint8_t subBoard = pos2sub(position);
-    // cerr << "CHECKPOINT: 2\n";
 
-    // Basic validity: Cell not played, Sub-board not won
+    // Basic validity: cell not played, sub-board not already won
     if (isPlayed(position) || isSubWon(subBoard))
       return false;
-    // cerr << "CHECKPOINT: 3\n";
 
-    // Constraint Logic
+    // "Send" constraint: the previous move's cell index dictates which
+    // sub-board this move must land in.
     if (prevMove != -1)
     {
       uint8_t targetBoard = prevMove % 9;
-      // cerr << "CHECKPOINT: 4\n";
 
-      // If target board is already won, we are free to play anywhere valid
+      // Free move: target board already won, so any valid cell is allowed.
       if (isSubWon(targetBoard))
         return true;
-      // cerr << "CHECKPOINT: 5\n";
 
-      // If we played in the target board, it's valid
+      // Move lands in the required target board.
       if (subBoard == targetBoard)
         return true;
-      // cerr << "CHECKPOINT: 6\n";
 
-      // CRITICAL FIX:
-      // If we are here, we played OUTSIDE the target board.
-      // This is only allowed if the target board is FULL (but not won).
-      // Check if targetBoard is full:
+      // Move is outside the target board, which is only allowed if the target
+      // board is completely full (any empty cell there makes this illegal).
       int base = targetBoard * 9;
       for (int i = 0; i < 9; i++)
       {
         if (!isPlayed(base + i))
-        {
-          // Found an empty spot in target board.
-          // We were supposed to play there! Move Invalid.
           return false;
-        }
       }
-
-      // cerr << "CHECKPOINT: 7\n";
-
-      // If loop finishes, targetBoard was full, so playing elsewhere is valid.
     }
-
-    // cerr << "CHECKPOINT: 8\n";
 
     return true;
   }
